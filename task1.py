@@ -224,8 +224,8 @@ class OneFactorTest:
     
     def eval_combined(self,test_info): 
         per_top, per_bottom = self.trade(test_info)
-        top = self.evaluation_mectrics('top',per_top,adj1 = 48,var=0.05)
-        bottom = self.evaluation_mectrics('bottom',per_bottom,adj1 = 48,var=0.05)
+        top = self.evaluation_mectrics('top',per_top)
+        bottom = self.evaluation_mectrics('bottom',per_bottom)
         return pd.concat([top,bottom], axis=0,keys=['top', 'bottom'])
     
     def compare_with_benchmark(self,test_info,name,output = False):
@@ -290,6 +290,8 @@ class OneFactorTest:
             template='plotly_white',
             colorway=px.colors.qualitative.Vivid
         )
+
+        fig.show()
 
 
 # ====================================================================================================================
