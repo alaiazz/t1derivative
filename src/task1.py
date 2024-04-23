@@ -1,12 +1,17 @@
+import numpy as np 
 import pandas as pd
-import matplotlib.pyplot as plt
-import numpy as np
+import matplotlib.pyplot as plt 
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import plotly.express as px
+from sklearn.linear_model import LinearRegression
 import warnings
 warnings.filterwarnings('ignore')
 
 
 data_root = '/Users/huayuzhu/Desktop/exam/raw_data/daily'
-output_dir = 'D:/output'
+output_dir = '/Users/huayuzhu/Desktop/exam/'
+
 # =============================================================================
 # # Data Fetching 
 # =============================================================================
@@ -131,7 +136,7 @@ class OneFactorTest:
 
         return df_top_performance, df_bottom_performance
     
-    def evaluation_mectrics(self,name,performance,adj1 = 48,var=0.05): 
+    def evaluation_mectrics(self,performance,adj1 = 48,var=0.05): 
         summary = dict()
         data = performance.loc[:,['net_return']].dropna()
         summary["Annualized Return"] = data.mean() * adj1
@@ -166,7 +171,7 @@ class OneFactorTest:
         bottom = self.evaluation_mectrics('bottom',per_bottom,adj1 = 48,var=0.05)
         return pd.concat([top,bottom], axis=0,keys=['top', 'bottom'])
     
-    def compare_with_benchmark(self,test_info):
+    def compare_with_benchmark(self,test_info,name,output = False):
         per_top, per_bottom = self.trade(test_info)
         ret_top = per_top.loc[:,['net_return']].dropna()
         ret_bottom = per_bottom.loc[:,['net_return']].dropna()
@@ -188,7 +193,55 @@ class OneFactorTest:
         summary["Daily excess_return BOTTOM"] = (daily_resampled_top['net_return'] - self.benchmark[905])
         summary["Cumulative excess_return BOTTOM"] = (1 + summary['Daily excess_return BOTTOM']).cumprod() - 1
 
+        if output:
+            summary.to_csv(f'{output_dir}/{name}_compairson_ret.csv')
+
         return summary
+    
+    def plot_comparison_with_benchmark(self, test_info,name):
+        df = self.compare_with_benchmark(test_info,name)
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+        fig.add_trace(
+            go.Scatter(x=df.index, y=df['Daily excess_return TOP'], name='Top Daily'),
+            secondary_y=False,
+        )
+
+        fig.add_trace(
+            go.Scatter(x=df.index, y=df['Daily excess_return BOTTOM'], name='Bottom Daily'),
+            secondary_y=False,
+        )
+
+
+        fig.add_trace(
+            go.Scatter(x=df.index, y=df['Cumulative excess_return TOP'], name='Top Cumulative'),
+            secondary_y=True,
+        )
+
+        fig.add_trace(
+            go.Scatter(x=df.index, y=df['Cumulative excess_return BOTTOM'], name='Bottom Cumulative'),
+            secondary_y=True,
+        )
+       
+        fig.update_layout(
+            title_text=name+"Comparison of Daily and Cumulative Excess Returns",
+            plot_bgcolor='white',  
+            xaxis_showgrid=False,  
+            yaxis_showgrid=False,  
+            yaxis2_showgrid=False,  
+            autosize=True,  
+            template='plotly_white',
+            colorway=px.colors.qualitative.Vivid
+        )
+
+test1 = TestInfo()
+factor27 = OneFactorTest(F7_27)
+factor27.plot_comparison_with_benchmark(test1,'F7_27')
+factor27.compare_with_benchmark(test1,'F7_27',True)
+
+factor26 = OneFactorTest(F7_26)
+factor26.plot_comparison_with_benchmark(test1,'F7_26')
+factor26.compare_with_benchmark(test1,'F7_26',True)
 
 
 # =============================================================================
@@ -214,7 +267,9 @@ def factor_coverage_rate_plot(df_restrict = S_RESTRICT, df_factor1 = F7_26, df_f
     coverage_26 = calc_factor_coverage_rate(df_restrict,df_factor1,factor_name1)
     coverage_27 = calc_factor_coverage_rate(df_restrict,df_factor2,factor_name2)
 
-    plt.figure(figsize=(10, 6))
+    plt.rcParams['font.size'] = 16
+    width = 12
+    plt.figure(figsize=(width * 1.41, width))
     plt.plot(coverage_26.index, coverage_26['F7_26'], label='F7_26 Factor Coverage Rate')
     plt.plot(coverage_27.index, coverage_27['F7_27'], label='F7_27 Factor Coverage Rate')
 
@@ -222,13 +277,69 @@ def factor_coverage_rate_plot(df_restrict = S_RESTRICT, df_factor1 = F7_26, df_f
     plt.xlabel('Date')
     plt.ylabel('Factor Coverage Rate')
     plt.legend()
-
+    plt.savefig(f"{output_dir}/coverage_rate_plot.png")
     plt.show()
 
-
-
-
+factor_coverage_rate_plot()
 
 # =============================================================================
 # # 因子市值中性化 
 # =============================================================================
+
+def mad(factor):
+    me = np.median(factor)
+    mad = np.median(abs(factor-me))
+    up = me + (3*1.4826*mad)
+    down = me - (3*1.4826*mad)
+    factor = np.where(factor>up,up,factor)
+    factor = np.where(factor<down,down,factor)
+    return factor
+
+def stand(factor):
+    mean = factor.mean()
+    std = factor.std()
+    return (factor-mean)/std
+def mad(factor):
+    me = np.median(factor)
+    mad = np.median(abs(factor-me))
+    up = me + (3*1.4826*mad)
+    down = me - (3*1.4826*mad)
+    factor = np.where(factor>up,up,factor)
+    factor = np.where(factor<down,down,factor)
+    return factor
+
+def stand(factor):
+    mean = factor.mean()
+    std = factor.std()
+    return (factor-mean)/std
+
+def neutralize_factors(df_factor, df_MV, name, output = True):
+    df_f1 = df_factor.copy()
+    for col in df_factor.columns:
+        factor_col = df_f1[col]
+        if factor_col.isnull().all():
+            continue
+        df_f1[col] = mad(factor_col)
+        df_f1[col] = stand(df_f1[col])
+        df_f1[col].replace([np.inf, -np.inf], np.nan, inplace=True) 
+        
+        x = df_MV[col].dropna()
+        y = df_f1[col].loc[x.index]   
+        valid_idx = y.notna()
+        x = x[valid_idx].to_frame()
+        y = y[valid_idx]
+
+ 
+        if not x.empty and not y.isin([np.inf, -np.inf, np.nan]).any():
+            L1 = LinearRegression()
+            L1.fit(x, y)
+            predictions = pd.Series(L1.predict(df_MV[col].dropna().to_frame()), index=df_MV[col].dropna().index)
+            df_f1[col].update(df_f1[col] - predictions.reindex(df_f1.index))
+
+    if output:
+        df_f1.to_csv(f'{output_dir}/{name}_neutralize.csv')
+
+    return df_f1
+
+neutralize_factors(F7_26,S_DQ_MV,'F7_26',output = True)
+neutralize_factors(F7_27,S_DQ_MV,'F7_27',output = True)
