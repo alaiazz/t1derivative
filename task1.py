@@ -12,10 +12,24 @@ warnings.filterwarnings('ignore')
 data_root = '/Users/huayuzhu/Desktop/exam/raw_data/daily'
 output_dir = '/Users/huayuzhu/Desktop/exam/'
 
-# =============================================================================
+# ====================================================================================================================
 # # Data Fetching 
-# =============================================================================
+# ====================================================================================================================
 def get_data_from_csv(file_path):
+    """
+    Reads a CSV file into a DataFrame, with the first column as row indices, 
+    transposes the result, and converts the row indices to datetime.
+
+    Parameters
+    ----------
+    file_path : str
+        The file path of the CSV file to be read.
+
+    Returns
+    -------
+    pd.DataFrame
+        Transposed DataFrame with datetime as index.
+    """
     try:
         data = pd.read_csv(file_path, index_col=0).T
         data.index = pd.to_datetime(data.index)
@@ -25,6 +39,7 @@ def get_data_from_csv(file_path):
         print(f"An error occurred: {e}")
     return data
 
+# read in datat 
 S_DQ_RET = get_data_from_csv(f'{data_root}/S_DQ_RET.csv')
 S_905_DQ_RET =  get_data_from_csv(f'{data_root}/905S_DQ_RET.csv')
 S_DQ_MV = get_data_from_csv(f'{data_root}/S_DQ_MV.csv')
@@ -33,9 +48,9 @@ F7_26 =  get_data_from_csv(f'{data_root}/F7_26.csv')
 F7_27 =  get_data_from_csv(f'{data_root}/F7_27.csv')
 S_DQ_OPEN = get_data_from_csv(f'{data_root}/S_DQ_OPEN.csv')
 
-# =============================================================================
-# # Backtesting Pipeline 
-# =============================================================================
+# ====================================================================================================================
+# # 单因子测试
+# ====================================================================================================================
 class TestInfo: 
     def __init__(self, group_number = 10, trading_frequency = 'W', initial_capital = None, trading_cost =0.0):
         """
@@ -52,6 +67,45 @@ class TestInfo:
         self.trading_cost = trading_cost 
 
 class OneFactorTest: 
+    """
+    A class to conduct single factor testing for stock trading strategies. It ranks stocks, handles trade intervals,
+    executes trades, and evaluates performance metrics against a benchmark.
+
+    Attributes
+    ----------
+    factor : DataFrame
+        Factor data used to rank stocks.
+    stock_price_open : DataFrame
+        Stock opening prices.
+    restricted_stock_df : DataFrame
+        Information on stocks that are restricted from trading.
+    benchmark : DataFrame
+        Benchmark data for comparison.
+
+    Methods
+    -------
+    rank_stock(test_info):
+        Ranks stocks based on the provided factor values.
+
+    trade_interval(df, test_info):
+        Resamples the given dataframe to the specified trading frequency and forward fills missing data.
+
+    trade(test_info):
+        Executes trades based on stock rankings and calculates performance.
+
+    evaluation_metrics(performance, adj1=48, var=0.05):
+        Calculates various performance metrics like attribution analysis and risk analysis metrics.
+
+    eval_combined(test_info):
+        Evaluates and combines performance metrics for top and bottom ranked stocks.
+
+    compare_with_benchmark(test_info, name, output=False):
+        Compares the strategy's performance with a benchmark, returns a dataframe of excess returns.
+
+    plot_comparison_with_benchmark(test_info, name):
+        Generates a plot comparing the daily and cumulative excess returns against a benchmark.
+    """
+
     def __init__(self,test_factor):
         self.factor = test_factor
         self.stock_price_open = S_DQ_OPEN
@@ -234,21 +288,41 @@ class OneFactorTest:
             colorway=px.colors.qualitative.Vivid
         )
 
+# output the plot of two factor individually and the result of comparison 
 test1 = TestInfo()
 factor27 = OneFactorTest(F7_27)
-factor27.plot_comparison_with_benchmark(test1,'F7_27')
+#factor27.plot_comparison_with_benchmark(test1,'F7_27')
 factor27.compare_with_benchmark(test1,'F7_27',True)
 
 factor26 = OneFactorTest(F7_26)
-factor26.plot_comparison_with_benchmark(test1,'F7_26')
+#factor26.plot_comparison_with_benchmark(test1,'F7_26')
 factor26.compare_with_benchmark(test1,'F7_26',True)
 
 
-# =============================================================================
-# # Factor Coverage Rate 
-# =============================================================================
+# ====================================================================================================================
+# # 因子覆盖率
+# ====================================================================================================================
 
 def calc_factor_coverage_rate(df_restrict, df_factor, factor_name):
+    """
+    Calculates the coverage rate of a factor, indicating the proportion of tradable stocks (not restricted)
+    that have non-null factor values.
+
+    Parameters
+    ----------
+    df_restrict : DataFrame
+        DataFrame indicating whether stocks are restricted from trading (1 if restricted, 0 if not).
+    df_factor : DataFrame
+        DataFrame containing factor values for stocks.
+    factor_name : str
+        The name to be given to the resulting coverage rate series.
+
+    Returns
+    -------
+    DataFrame
+        A DataFrame with a single column named after `factor_name` containing the coverage rate.
+    """
+
     # check df info 
     if (df_restrict.index != df_factor.index).any(): 
         print('Please debug: length does not match.')
@@ -263,7 +337,30 @@ def calc_factor_coverage_rate(df_restrict, df_factor, factor_name):
     coverage_rate = coverage_rate.fillna(0)
     return coverage_rate.to_frame(name=factor_name) 
 
-def factor_coverage_rate_plot(df_restrict = S_RESTRICT, df_factor1 = F7_26, df_factor2 = F7_27, factor_name1= 'F7_26', factor_name2 = 'F7_27'):
+def factor_coverage_rate_plot(df_restrict = S_RESTRICT, df_factor1 = F7_26, df_factor2 = F7_27, 
+                              factor_name1= 'F7_26', factor_name2 = 'F7_27', output = True):
+    """
+    Plots the coverage rates of two factors to compare over time.
+
+    Parameters
+    ----------
+    df_restrict : DataFrame
+        DataFrame indicating whether stocks are restricted from trading.
+    df_factor1 : DataFrame
+        DataFrame containing the first factor's values.
+    df_factor2 : DataFrame
+        DataFrame containing the second factor's values.
+    factor_name1 : str
+        Name of the first factor.
+    factor_name2 : str
+        Name of the second factor.
+    output : bool, default True
+        If True, saves the plot as a PNG file. If False, shows the plot interactively.
+
+    Returns
+    -------
+    None
+    """
     coverage_26 = calc_factor_coverage_rate(df_restrict,df_factor1,factor_name1)
     coverage_27 = calc_factor_coverage_rate(df_restrict,df_factor2,factor_name2)
 
@@ -277,16 +374,32 @@ def factor_coverage_rate_plot(df_restrict = S_RESTRICT, df_factor1 = F7_26, df_f
     plt.xlabel('Date')
     plt.ylabel('Factor Coverage Rate')
     plt.legend()
-    plt.savefig(f"{output_dir}/coverage_rate_plot.png")
-    plt.show()
+    if output:
+        plt.savefig(f"{output_dir}/coverage_rate_plot.png")
+    else:
+        plt.show()
 
 factor_coverage_rate_plot()
 
-# =============================================================================
+# ====================================================================================================================
 # # 因子市值中性化 
-# =============================================================================
+# ====================================================================================================================
+
 
 def mad(factor):
+    """
+    Applies the Median Absolute Deviation (MAD) method to limit the factor values within a threshold to reduce the effect of outliers.
+
+    Parameters
+    ----------
+    factor : Series or ndarray
+        Series or array of factor values.
+
+    Returns
+    -------
+    Series or ndarray
+        Factor values after the MAD method has been applied.
+    """
     me = np.median(factor)
     mad = np.median(abs(factor-me))
     up = me + (3*1.4826*mad)
@@ -296,24 +409,44 @@ def mad(factor):
     return factor
 
 def stand(factor):
-    mean = factor.mean()
-    std = factor.std()
-    return (factor-mean)/std
-def mad(factor):
-    me = np.median(factor)
-    mad = np.median(abs(factor-me))
-    up = me + (3*1.4826*mad)
-    down = me - (3*1.4826*mad)
-    factor = np.where(factor>up,up,factor)
-    factor = np.where(factor<down,down,factor)
-    return factor
+    """
+    Standardizes the factor values by subtracting the mean and dividing by the standard deviation.
 
-def stand(factor):
+    Parameters
+    ----------
+    factor : Series or ndarray
+        Series or array of factor values.
+
+    Returns
+    -------
+    Series or ndarray
+        Standardized factor values.
+    """
     mean = factor.mean()
     std = factor.std()
     return (factor-mean)/std
 
 def neutralize_factors(df_factor, df_MV, name, output = True):
+    """
+    Neutralizes each factor in df_factor against the market values in df_MV by performing a linear regression and subtracting the predicted values.
+
+    Parameters
+    ----------
+    df_factor : DataFrame
+        DataFrame with factors to be neutralized.
+    df_MV : DataFrame
+        DataFrame with market values used as independent variables in the regression.
+    name : str
+        The base name for the output file.
+    output : bool, default True
+        If True, saves the neutralized factors to a CSV file.
+
+    Returns
+    -------
+    DataFrame
+        DataFrame with neutralized factor values.
+    """
+
     df_f1 = df_factor.copy()
     for col in df_factor.columns:
         factor_col = df_f1[col]
