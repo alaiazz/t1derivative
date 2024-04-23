@@ -10,7 +10,7 @@ warnings.filterwarnings('ignore')
 
 
 data_root = '/Users/huayuzhu/Desktop/exam/raw_data/daily'
-output_dir = '/Users/huayuzhu/Desktop/exam/'
+output_dir = '/Users/huayuzhu/Desktop/exam/task1'
 
 # ====================================================================================================================
 # # Data Fetching 
@@ -107,10 +107,13 @@ class OneFactorTest:
     """
 
     def __init__(self,test_factor):
-        self.factor = test_factor
-        self.stock_price_open = S_DQ_OPEN
+        min_date = max(test_factor.index.min(), S_DQ_OPEN.index.min())
+        max_date = min(test_factor.index.max(), S_DQ_OPEN.index.max())
+
+        self.factor = test_factor.loc[min_date:max_date]
+        self.stock_price_open = S_DQ_OPEN.loc[min_date:max_date]
         self.restricted_stock_df = S_RESTRICT
-        self.benchmark = S_905_DQ_RET
+        self.benchmark = S_905_DQ_RET.loc[min_date:max_date]
     
     def rank_stock(self,test_info): 
         factor_value = self.factor.copy()
@@ -244,7 +247,7 @@ class OneFactorTest:
         summary = pd.DataFrame(index = self.benchmark.index) 
         summary["Daily excess_return TOP"] = (daily_resampled_top['net_return'] - self.benchmark[905])
         summary["Cumulative excess_return TOP"] = (1 + summary['Daily excess_return TOP']).cumprod() - 1
-        summary["Daily excess_return BOTTOM"] = (daily_resampled_top['net_return'] - self.benchmark[905])
+        summary["Daily excess_return BOTTOM"] = (daily_resampled_bottom['net_return'] - self.benchmark[905])
         summary["Cumulative excess_return BOTTOM"] = (1 + summary['Daily excess_return BOTTOM']).cumprod() - 1
 
         if output:
@@ -287,16 +290,6 @@ class OneFactorTest:
             template='plotly_white',
             colorway=px.colors.qualitative.Vivid
         )
-
-# output the plot of two factor individually and the result of comparison 
-test1 = TestInfo()
-factor27 = OneFactorTest(F7_27)
-#factor27.plot_comparison_with_benchmark(test1,'F7_27')
-factor27.compare_with_benchmark(test1,'F7_27',True)
-
-factor26 = OneFactorTest(F7_26)
-#factor26.plot_comparison_with_benchmark(test1,'F7_26')
-factor26.compare_with_benchmark(test1,'F7_26',True)
 
 
 # ====================================================================================================================
@@ -379,7 +372,6 @@ def factor_coverage_rate_plot(df_restrict = S_RESTRICT, df_factor1 = F7_26, df_f
     else:
         plt.show()
 
-factor_coverage_rate_plot()
 
 # ====================================================================================================================
 # # 因子市值中性化 
@@ -474,5 +466,17 @@ def neutralize_factors(df_factor, df_MV, name, output = True):
 
     return df_f1
 
-neutralize_factors(F7_26,S_DQ_MV,'F7_26',output = True)
-neutralize_factors(F7_27,S_DQ_MV,'F7_27',output = True)
+if __name__ == '__main__':
+    # output the plot of two factor individually and the result of comparison 
+    test1 = TestInfo()
+    factor27 = OneFactorTest(F7_27)
+    #factor27.plot_comparison_with_benchmark(test1,'F7_27')
+    factor27.compare_with_benchmark(test1,'F7_27',True)
+
+    factor26 = OneFactorTest(F7_26)
+    #factor26.plot_comparison_with_benchmark(test1,'F7_26')
+    factor26.compare_with_benchmark(test1,'F7_26',True)
+
+    factor_coverage_rate_plot()
+    neutralize_factors(F7_26,S_DQ_MV,'F7_26',output = True)
+    neutralize_factors(F7_27,S_DQ_MV,'F7_27',output = True)
