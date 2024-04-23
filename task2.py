@@ -240,6 +240,53 @@ def calc_VWAP(amount, volume, N):
         vwap = rolling_amount / rolling_volume
     return vwap[N:]
 
+# ====================================================================================================================
+# # 大单的分钟频的收益和成交量的相关性(全天和早盘 2h) 
+# ====================================================================================================================
+def calc_large_order_corr(volume, open, close):
+    """
+    Calculates the correlation between large order volumes and stock returns for full trading days and morning sessions.
+
+    Parameters
+    ----------
+    volume : pd.DataFrame
+        DataFrame containing trading volumes for each minute, indexed by datetime with tickers as columns.
+    open : pd.DataFrame
+        DataFrame containing opening prices for each minute, indexed by datetime with tickers as columns.
+    close : pd.DataFrame
+        DataFrame containing closing prices for each minute, indexed by datetime with tickers as columns.
+
+    Returns
+    -------
+    tuple of pd.DataFrame
+        Two DataFrame objects containing the correlation of large order volumes with returns for full days and mornings,
+        indexed by date. 
+    """
+    ret = close/open.shift(1) -1 
+
+    def get_large_order_correlation_for_day(group):
+        large_volume = group.rank(pct= True) > 2/3
+        large_returns = ret.loc[large_volume.index]
+        large_ret = large_returns.where(large_volume,np.nan)
+        large_vol = group.where(large_volume,np.nan)
+        correlation = large_ret.corrwith(large_vol)
+        return correlation
+    
+    def get_large_order_correlation_for_morning(group):
+        large_volume = group.rank(pct= True) > 2/3
+        large_returns = ret.between_time('9:31', '11:30').loc[large_volume.index]
+        large_ret = large_returns.where(large_volume,np.nan)
+        large_vol = group.where(large_volume,np.nan)
+        correlation = large_ret.corrwith(large_vol)
+        return correlation
+
+    full_day_correlation = volume.groupby(volume.index.date).apply(get_large_order_correlation_for_day)
+    volume_morning = volume.between_time('9:31', '11:30')
+    morning_correlation = volume_morning.groupby(volume_morning.index.date).apply(get_large_order_correlation_for_morning)
+    
+
+    return full_day_correlation,morning_correlation
+
 
 if __name__ == '__main__': 
 
@@ -273,6 +320,11 @@ if __name__ == '__main__':
     vwap_1.to_csv(f'{output_dir}/vwap_1.csv')
     vwap_5.to_csv(f'{output_dir}/vwap_5.csv')
     vwap_10.to_csv(f'{output_dir}/vwap_10.csv')
+
+    # corr calculation 
+    day_corr,morning_corr = calc_large_order_corr(volume,open,close)
+    day_corr.to_csv(f'{output_dir}/day_corr.csv')
+    morning_corr.to_csv(f'{output_dir}/morning_corr.csv')
 
 
 
