@@ -107,8 +107,8 @@ def calculate_factor(df_adj_close, df_adj_open, df_volume, df_market_value, N):
 def calculate_adjusted_turnover_weighted_returns(df_adj_close, df_adj_open, df_volume, df_market_value, N):
     """
     Calculates the weighted mean overnight returns for stocks based on turnover rates from the past N days.
-    The weighted mean is computed by doubling the mean overnight return for the top 20% of turnover rates
-    and halving the mean overnight return for the bottom 20%, then summing these two values.
+    The weighted mean is computed by halving the mean overnight return for the top 20% of turnover rates
+    and doubling the mean overnight return for the bottom 20%, then summing these two values.
 
     Parameters
     ----------
@@ -138,8 +138,8 @@ def calculate_adjusted_turnover_weighted_returns(df_adj_close, df_adj_open, df_v
         ranked_turnover = turnover_window.rank(pct=True)
         is_top_20 = ranked_turnover >= 0.8
         is_bottom_20 = ranked_turnover <= 0.2        
-        mean_over_night_top = overnight_window[is_top_20].mean() * 2 
-        mean_over_night_bottom = overnight_window[is_bottom_20].mean() / 2 
+        mean_over_night_top = overnight_window[is_top_20].mean()/2
+        mean_over_night_bottom = overnight_window[is_bottom_20].mean() * 2 
         mean_over_night = (mean_over_night_top + mean_over_night_bottom)
         return mean_over_night 
 
@@ -301,7 +301,7 @@ if __name__ == '__main__':
 
     # test factor1 with benchmark 
     test1 = t1.TestInfo()
-    factor1 = t1.OneFactorTest(df_factor)
+    factor1 = t1.OneFactorTest(df_factor,S_DQ_OPEN)
     factor1.compare_with_benchmark(test1,'Factor1',True)
 
     # factor 1.2 construction 
@@ -310,7 +310,7 @@ if __name__ == '__main__':
     factor_2_2016.to_csv(f'{output_dir}/factor1.2.csv')
 
     # test factor1.2 with benchmark 
-    factor1_2 = t1.OneFactorTest(df_factor_2)
+    factor1_2 = t1.OneFactorTest(df_factor_2,S_DQ_OPEN)
     factor1_2.compare_with_benchmark(test1,'Factor1.2',True)
 
     # N = {1,5,10}, calculate VWAP 

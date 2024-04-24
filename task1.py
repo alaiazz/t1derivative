@@ -193,8 +193,9 @@ class OneFactorTest:
 
         return df_top_performance, df_bottom_performance
     
-    def evaluation_mectrics(self,performance,adj1 = 48,var=0.05): 
+    def evaluation_mectrics(self,performance, adj1 = 48,var=0.05): 
         summary = dict()
+        #print(type(performance))
         data = performance.loc[:,['net_return']].dropna()
         summary["Annualized Return"] = data.mean() * adj1
         summary["Annualized Volatility"] = data.std() * np.sqrt(adj1)
@@ -224,8 +225,8 @@ class OneFactorTest:
     
     def eval_combined(self,test_info): 
         per_top, per_bottom = self.trade(test_info)
-        top = self.evaluation_mectrics('top',per_top)
-        bottom = self.evaluation_mectrics('bottom',per_bottom)
+        top = self.evaluation_mectrics(per_top)
+        bottom = self.evaluation_mectrics(per_bottom)
         return pd.concat([top,bottom], axis=0,keys=['top', 'bottom'])
     
     def compare_with_benchmark(self,test_info,name,output = False):
@@ -246,9 +247,9 @@ class OneFactorTest:
             print('please debug')
         summary = pd.DataFrame(index = self.benchmark.index) 
         summary["Daily excess_return TOP"] = (daily_resampled_top['net_return'] - self.benchmark[905])
-        summary["Cumulative excess_return TOP"] = summary['Daily excess_return TOP'].cumsum()
+        summary["Cumulative excess_return TOP"] = (summary['Daily excess_return TOP']).cumsum()
         summary["Daily excess_return BOTTOM"] = (daily_resampled_bottom['net_return'] - self.benchmark[905])
-        summary["Cumulative excess_return BOTTOM"] = summary['Daily excess_return BOTTOM'].cumsum()
+        summary["Cumulative excess_return BOTTOM"] = (summary['Daily excess_return BOTTOM']).cumsum()
 
         if output:
             summary.to_csv(f'{output_dir}/{name}_compairson_ret.csv')
