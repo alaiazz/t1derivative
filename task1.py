@@ -106,13 +106,13 @@ class OneFactorTest:
         Generates a plot comparing the daily and cumulative excess returns against a benchmark.
     """
 
-    def __init__(self,test_factor):
-        min_date = max(test_factor.index.min(), S_DQ_OPEN.index.min())
-        max_date = min(test_factor.index.max(), S_DQ_OPEN.index.max())
+    def __init__(self,test_factor,open):
+        min_date = max(test_factor.index.min(), open.index.min())
+        max_date = min(test_factor.index.max(), open.index.max())
 
         self.factor = test_factor.loc[min_date:max_date]
-        self.stock_price_open = S_DQ_OPEN.loc[min_date:max_date]
-        self.restricted_stock_df = S_RESTRICT
+        self.stock_price_open = open.loc[min_date:max_date]
+        #self.restricted_stock_df = S_RESTRICT
         self.benchmark = S_905_DQ_RET.loc[min_date:max_date]
     
     def rank_stock(self,test_info): 
@@ -161,7 +161,7 @@ class OneFactorTest:
             top_ratio = side_k / top_k if top_k else 0
             bottom_ratio = side_k / bottom_k if bottom_k else 0
             top_r.loc[date] = signals.apply(lambda x: top_ratio if x == 1 else 0)
-            bottom_r.loc[date] = signals.apply(lambda x: bottom_ratio if x == 1 else 0)
+            bottom_r.loc[date] = signals.apply(lambda x: bottom_ratio if x == 10 else 0)
 
             # profit calculation 
             if i > 0: 
@@ -246,9 +246,9 @@ class OneFactorTest:
             print('please debug')
         summary = pd.DataFrame(index = self.benchmark.index) 
         summary["Daily excess_return TOP"] = (daily_resampled_top['net_return'] - self.benchmark[905])
-        summary["Cumulative excess_return TOP"] = (1 + summary['Daily excess_return TOP']).cumprod() - 1
+        summary["Cumulative excess_return TOP"] = summary['Daily excess_return TOP'].cumsum()
         summary["Daily excess_return BOTTOM"] = (daily_resampled_bottom['net_return'] - self.benchmark[905])
-        summary["Cumulative excess_return BOTTOM"] = (1 + summary['Daily excess_return BOTTOM']).cumprod() - 1
+        summary["Cumulative excess_return BOTTOM"] = summary['Daily excess_return BOTTOM'].cumsum()
 
         if output:
             summary.to_csv(f'{output_dir}/{name}_compairson_ret.csv')
@@ -471,11 +471,11 @@ def neutralize_factors(df_factor, df_MV, name, output = True):
 if __name__ == '__main__':
     # output the plot of two factor individually and the result of comparison 
     test1 = TestInfo()
-    factor27 = OneFactorTest(F7_27)
+    factor27 = OneFactorTest(F7_27,S_DQ_OPEN)
     #factor27.plot_comparison_with_benchmark(test1,'F7_27')
     factor27.compare_with_benchmark(test1,'F7_27',True)
 
-    factor26 = OneFactorTest(F7_26)
+    factor26 = OneFactorTest(F7_26,S_DQ_OPEN)
     #factor26.plot_comparison_with_benchmark(test1,'F7_26')
     factor26.compare_with_benchmark(test1,'F7_26',True)
 
